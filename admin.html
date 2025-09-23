@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Seldom Bank - Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f8fc;
+      margin: 0;
+      padding: 20px;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #0b3d91;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    th {
+      background-color: #0b3d91;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #f0f0f0;
+    }
+    button {
+      padding: 5px 10px;
+      margin: 2px;
+      font-size: 0.9em;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+    }
+    .credit { background: green; color: white; }
+    .debit { background: darkred; color: white; }
+    .block { background: black; color: white; }
+    .vip { background: purple; color: white; }
+    .email { background: #d44638; color: white; }
+    .call { background: #34b7f1; color: white; }
+    .download { background: #0b3d91; color: white; padding: 10px 20px; margin: 20px auto; display: block; }
+    .asset-display {
+      font-size: 1.2em;
+      text-align: center;
+      color: darkgreen;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Seldom Bank - Admin Panel</h1>
+  <div class="asset-display">Bank Asset: ₦<span id="bankAsset">Loading...</span></div>
+
+  <button class="download" onclick="downloadCSV()">Download All User Info (CSV)</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Username</th>
+        <th>Phone</th>
+        <th>Balance</th>
+        <th>Account No</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="userList">
+      <tr><td colspan="6">Loading...</td></tr>
+    </tbody>
+  </table>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+    const supabase = supabase.createClient(
+      'https://iurbleizodevsuharmau.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1cmJsZWl6b2RldnN1aGFybWF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4MDg3MDgsImV4cCI6MjA3MzM4NDcwOH0.L4yM0U6deTKD7No5IfK642zlj4IRtHk_lAolmqF5Rmk'
+    );
+
+    async function getAsset() {
+      const { data, error } = await supabase.from('bank_asset').select('amount').single();
+      document.getElementById('bankAsset').innerText = parseInt(data?.amount || 0).toLocaleString();
+    }
+
+    async function loadUsers() {
+      const { data: users } = await supabase.from('profiles').select('*');
+      const { data: wallets } = await supabase.from('wallets').select('*');
+
+      const userTable = document.getElementById('userList');
+      userTable.innerHTML = '';
+
+      users.forEach(user => {
+        const wallet = wallets.find(w => w.user_id === user.id);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${user.email}</td>
+          <td>${user.username}</td>
+          <td>${user.phone}</td>
+          <td>₦${wallet?.balance?.toLocaleString() || 0}</td>
+          <td>${user.account_number || 'N/A'}</td>
+          <td>
+            <button class="credit" onclick="adjustBalance('${user.id}', '${user.email}', 'credit')">Credit</button>
+            <button class="debit" onclick="adjustBalance('${user.id}', '${user.email}', 'debit')">Debit</button>
+            <button class="vip" onclick="sendSingleVIP('${user.id}')">VIP</button>
+            <button class="block" onclick="blockUser('${user.id}')">Block</button>
+            <a href="tel:${user.phone}"><button class="call">Call</button></a>
+            <a href="mailto:${user.email}"><button class="email">Email</button></a>
+          </td>
+        `;
+        userTable.appendChild(row);
+      });
+    }
+
+    async function adjustBalance(userId, userEmail, type) {
+      const amount = prompt(`Enter amount to ${type} for ${userEmail}:`);
+      const parsed = parseFloat(amount);
+      if (!parsed || isNaN(parsed)) return alert("Invalid amount.");
+
+      // Get user's wallet
+      const { data: wallet } = await supabase.from('wallets').select('*').eq('user_id', userId).single();
+      const current = wallet?.balance || 0;
+      let newBalance;
+
+      if (type === 'credit') {
+        // Get bank asset
+        const { data: assetRow } = await supabase.from('bank_asset').select('amount').single();
+        const currentAsset = assetRow?.amount || 0;
+
+        if (parsed > currentAsset) return alert("Insufficient bank asset to credit this amount.");
+
+        // Subtract from bank asset
+        await supabase.from('bank_asset').update({ amount: currentAsset - parsed }).eq('id', assetRow.id);
+
+        // Update user's balance
+        newBalance = current + parsed;
+      } else {
+        // Debit user
+        newBalance = current - parsed;
+        if (newBalance < 0) return alert("User has insufficient balance.");
+      }
+
+      // Update user's wallet
+      await supabase.from('wallets').update({ balance: newBalance }).eq('user_id', userId);
+
+      // Send notification
+      await supabase.from('notifications').insert([
+        { user_id: userId, message: `[Admin] Your wallet was ${type}ed ₦${parsed.toLocaleString()}` }
+      ]);
+
+      alert(`₦${parsed.toLocaleString()} ${type}ed successfully.`);
+
+      // Refresh bank asset and users
+      getAsset();
+      loadUsers();
+    }
+
+    async function blockUser(userId) {
+      const confirmBlock = confirm("Block this user?");
+      if (!confirmBlock) return;
+      await supabase.from('profiles').delete().eq('id', userId);
+      alert("User blocked.");
+      loadUsers();
+    }
+
+    async function sendSingleVIP(userId) {
+      const msg = prompt("Enter VIP message:");
+      if (!msg) return;
+      await supabase.from('notifications').insert([{ user_id: userId, message: "[VIP] " + msg }]);
+      alert("Message sent.");
+    }
+
+    function downloadCSV() {
+      fetchUserCSV().then(csv => {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'seldom_users.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }
+
+    async function fetchUserCSV() {
+      const { data: users } = await supabase.from('profiles').select('*');
+      const { data: wallets } = await supabase.from('wallets').select('*');
+
+      let csv = "Email,Username,Phone,State,LGA,Account No,Balance\\n";
+      users.forEach(user => {
+        const balance = wallets.find(w => w.user_id === user.id)?.balance || 0;
+        csv += `${user.email},${user.username},${user.phone},${user.state},${user.lga},${user.account_number},${balance}\n`;
+      });
+      return csv;
+    }
+
+    // Initial load
+    getAsset();
+    loadUsers();
+  </script>
+</body>
+</html>
