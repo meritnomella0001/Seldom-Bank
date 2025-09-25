@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Seldom Bank</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #e0f2f1;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      width: 90%;
+      max-width: 400px;
+      padding: 30px 20px;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      margin-top: 30px;
+    }
+    h1, h2, h3, h4 {
+      text-align: center;
+      color: #00796b;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #00796b;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover { background: #00695c; }
+    a {
+      color: #00796b;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover { text-decoration: underline; }
+    p { text-align: center; }
+    #loginSection, #dashboardSection { display: none; }
+    .receipt { background: #eef; padding: 15px; border-radius: 5px; margin-top: 20px; display: none; }
+    .actions { display: flex; gap: 10px; margin-top: 10px; }
+    .actions button { flex: 1; }
+  </style>
+</head>
+<body>
+
+<!-- Register Section -->
+<div class="container" id="registerSection">
+  <h1>Seldom Bank</h1>
+  <h2>Register</h2>
+  <input type="email" id="regEmail" placeholder="Email">
+  <input type="password" id="regPassword" placeholder="Password">
+  <input type="text" id="username" placeholder="Username">
+  <input type="tel" id="phone" placeholder="Phone Number">
+  <input type="text" id="state" placeholder="State">
+  <input type="text" id="lga" placeholder="Local Government">
+  <button onclick="register()">Register</button>
+  <p>Already have an account? <a href="#" onclick="showLogin()">Login here</a></p>
+</div>
+
+<!-- Login Section -->
+<div class="container" id="loginSection">
+  <h1>Seldom Bank</h1>
+  <h2>Login</h2>
+  <input type="email" id="loginEmail" placeholder="Email">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <p>Don't have an account? <a href="#" onclick="showRegister()">Register here</a></p>
+</div>
+<!-- Dashboard Section -->
+<div class="container" id="dashboardSection">
+  <h2>Hello, <span id="userEmail">Loading...</span></h2>
+  <h3>Wallet Balance: ₦<span id="walletBalance">0</span></h3>
+  <h4>Account Number: <span id="accountNumber">Loading...</span></h4>
+
+  <div class="actions">
+    <button onclick="logout()" style="background:red;">Logout</button>
+    <button onclick="loadDashboard()">Refresh</button>
+  </div>
+
+  <h4>Send Money by Account Number</h4>
+  <input type="text" id="recipientAcc" placeholder="Enter Account Number">
+  <p id="recipientName" style="color: green; font-weight: bold;"></p>
+  <input type="number" id="sendAmount" placeholder="Amount">
+  <button onclick="sendMoney()">Send</button>
+
+  <h4>Transaction History</h4>
+  <div id="transactionHistory">Loading...</div>
+  <h4>Notifications</h4>
+  <ul id="notifications" style="color: blue;"></ul>
+
+  <div class="receipt" id="receipt">
+    <h3>Transaction Receipt</h3>
+    <p><strong>From:</strong> <span id="receiptFrom"></span></p>
+    <p><strong>To:</strong> <span id="receiptTo"></span></p>
+    <p><strong>Amount:</strong> ₦<span id="receiptAmount"></span></p>
+    <p><strong>Date:</strong> <span id="receiptDate"></span></p>
+    <p><strong>Ref:</strong> <span id="receiptRef"></span></p>
+    <button onclick="window.print()">Print Receipt</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+
+<script>
+	
+const supabaseClient = supabase.createClient(
+  'https://iurbleizodevsuharmau.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1cmJsZWl6b2RldnN1aGFybWF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4MDg3MDgsImV4cCI6MjA3MzM4NDcwOH0.L4yM0U6deTKD7No5IfK642zlj4IRtHk_lAolmqF5Rmk'
+);
+
+let currentUser = null;
+
+function showLogin() {
+  document.getElementById('registerSection').style.display = 'none';
+  document.getElementById('loginSection').style.display = 'block';
+  document.getElementById('dashboardSection').style.display = 'none';
+}
+
+function showRegister() {
+  document.getElementById('registerSection').style.display = 'block';
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('dashboardSection').style.display = 'none';
+}
+
+async function register() {
+  const email = document.getElementById('regEmail').value;
+  const password = document.getElementById('regPassword').value;
+  const username = document.getElementById('username').value;
+  const phone = document.getElementById('phone').value;
+  const state = document.getElementById('state').value;
+  const lga = document.getElementById('lga').value;
+
+  // 1️⃣ Sign up user
+  const { data, error } = await supabaseClient.auth.signUp({ email, password });
+  if (error) return alert('Registration failed: ' + error.message);
+  const { user } = data;
+
+  // 2️⃣ Insert profile
+  await supabaseClient.from('profiles').insert([{ 
+    id: user.id, email, username, phone, state, lga
+  }]);
+
+  // 3️⃣ Create bank account
+  await createAccountForNewUser(user.id);
+
+  alert('Registration successful! Please log in.');
+  showLogin();
+}
+
+// Generate a unique 10-digit account number starting with 2000
+async function generateAccountNumber() {
+  let accountNumber = '';
+  let exists = true;
+
+  while (exists) {
+    const randomPart = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    accountNumber = '2000' + randomPart;
+
+    const { data } = await supabaseClient.from('accounts')
+      .select('account_number')
+      .eq('account_number', accountNumber)
+      .single();
+
+    exists = !!data;
+  }
+  return accountNumber;
+}
+
+// Insert account row for new user
+async function createAccountForNewUser(userId) {
+  const accountNumber = await generateAccountNumber();
+
+  const { data, error } = await supabaseClient.from('accounts').insert([{
+    id: userId,
+    account_number: accountNumber,
+    balance: 0
+  }]);
+
+  if (error) console.error('Account creation failed:', error);
+  else console.log('Account created:', data);
+}
+
+// Login function
+async function login() {
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) return alert('Login failed: ' + error.message);
+
+  currentUser = data.user;
+  showDashboard();
+}
+
+// Show dashboard
+async function showDashboard() {
+  document.getElementById('registerSection').style.display = 'none';
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('dashboardSection').style.display = 'block';
+
+  document.getElementById('userEmail').innerText = currentUser.email;
+
+  // Load account info
+  const { data: account } = await supabaseClient.from('accounts')
+    .select('*')
+    .eq('id', currentUser.id)
+    .single();
+
+  document.getElementById('accountNumber').innerText = account ? account.account_number : 'N/A';
+  document.getElementById('walletBalance').innerText = account ? account.balance.toLocaleString() : '0';
+
+  loadTransactionHistory();
+  loadNotificationHistory();
+}
+
+document.getElementById('recipientAcc').addEventListener('input', async function () {
+  const accNum = this.value;
+  if (accNum.length === 10) {
+    const { data } = await supabaseClient.from('profiles').select('username').eq('account_number', accNum).single();
+    if (data) {
+      document.getElementById('recipientName').innerText = "Name: " + data.username;
+    } else {
+      document.getElementById('recipientName').innerText = "No account found";
+    }
+  } else {
+    document.getElementById('recipientName').innerText = "";
+  }
+});
+
+async function sendMoney() {
+  const accNum = document.getElementById('recipientAcc').value;
+  const amount = parseFloat(document.getElementById('sendAmount').value);
+  if (!accNum || !amount) return alert('All fields required');
+
+  const { data: receiver } = await supabaseClient.from('profiles').select('*').eq('account_number', accNum).single();
+  if (!receiver) return alert('Recipient not found');
+
+  const { data: senderWallet } = await supabaseClient.from('wallets').select('*').eq('user_id', currentUser.id).single();
+  if (senderWallet.balance < amount) return alert('Insufficient balance');
+
+  const { data: receiverWallet } = await supabaseClient.from('wallets').select('*').eq('user_id', receiver.id).single();
+  const ref = 'TX' + Math.floor(Math.random() * 99999999);
+
+  await supabaseClient.from('wallets').update({ balance: senderWallet.balance - amount }).eq('user_id', currentUser.id);
+  await supabaseClient.from('wallets').update({ balance: receiverWallet.balance + amount }).eq('user_id', receiver.id);
+  await supabaseClient.from('transactions').insert([{ 
+  from_id: currentUser.id, 
+  to_id: receiver.id, 
+  amount, 
+  ref_id: ref 
+}]);
+
+// Notify both parties
+await supabaseClient.from('notifications').insert([
+  {
+    user_id: currentUser.id,
+    message: `✅ You sent ₦${amount.toLocaleString()} to ${receiver.email}`
+  },
+  {
+    user_id: receiver.id,
+    message: `📥 You received ₦${amount.toLocaleString()} from ${currentUser.email}`
+  }
+]);
+  // Show receipt
+  document.getElementById('receiptFrom').innerText = currentUser.email;
+  document.getElementById('receiptTo').innerText = receiver.email;
+  document.getElementById('receiptAmount').innerText = amount.toLocaleString();
+  document.getElementById('receiptDate').innerText = new Date().toLocaleString();
+  document.getElementById('receiptRef').innerText = ref;
+  document.getElementById('receipt').style.display = 'block';
+
+  loadDashboard();
+}
+
+
+async function loadTransactionHistory() {
+  const { data: sent } = await supabaseClient.from('transactions').select('*, to:profiles(id, email)').eq('from_id', currentUser.id);
+  const { data: received } = await supabaseClient.from('transactions').select('*, from:profiles(id, email)').eq('to_id', currentUser.id);
+  
+  let html = '<ul>';
+  sent.forEach(tx => {
+    html += `<li>Sent ₦${tx.amount.toLocaleString()} to ${tx.to.email} [${tx.ref_id}]</li>`;
+  });
+  received.forEach(tx => {
+    html += `<li>Received ₦${tx.amount.toLocaleString()} from ${tx.from.email} [${tx.ref_id}]</li>`;
+  });
+  html += '</ul>';
+  document.getElementById('transactionHistory').innerHTML = html;
+}
+
+function listenForTransactions() {
+  supabaseClient
+    .channel('realtime:transactions')
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'transactions',
+    }, async (payload) => {
+      const tx = payload.new;
+
+      // If current user is involved
+      if (tx.from_id === currentUser.id || tx.to_id === currentUser.id) {
+        let message = "";
+
+        // Get profile of other party
+        if (tx.from_id === currentUser.id) {
+          const { data: toProfile } = await supabaseClient
+            .from('profiles')
+            .select('email')
+            .eq('id', tx.to_id)
+            .single();
+          message = `✅ You sent ₦${tx.amount.toLocaleString()} to ${toProfile.email}`;
+        } else {
+          const { data: fromProfile } = await supabaseClient
+            .from('profiles')
+            .select('email')
+            .eq('id', tx.from_id)
+            .single();
+          message = `📥 You received ₦${tx.amount.toLocaleString()} from ${fromProfile.email}`;
+        }
+
+        // Append notification
+        const notif = document.createElement('li');
+        notif.innerText = message;
+        document.getElementById('notifications').prepend(notif);
+      }
+    })
+    .subscribe();
+}
+
+async function logout() {
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  showLogin();
+}
+async function loadNotificationHistory() {
+  const { data, error } = await supabaseClient
+    .from('notifications')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  const container = document.getElementById('notifications');
+  container.innerHTML = ''; // Clear old
+
+  if (data && data.length > 0) {
+    data.forEach(notif => {
+      const li = document.createElement('li');
+      li.innerText = notif.message;
+      container.appendChild(li);
+    });
+  } else {
+    container.innerHTML = '<li>No notifications yet.</li>';
+  }
+}
+
+</script>
+</body>
+</html>

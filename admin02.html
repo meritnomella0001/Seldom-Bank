@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Seldom Bank - Admin Panel</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f8fc;
+      margin: 0;
+      padding: 10px;
+    }
+    h1 {
+      text-align: center;
+      color: #0b3d91;
+      margin-bottom: 10px;
+    }
+    .asset-display {
+      text-align: center;
+      font-size: 1.2em;
+      color: darkgreen;
+      margin-bottom: 10px;
+    }
+    .notifications {
+      margin: 10px auto;
+      padding: 5px;
+      border: 1px solid #ccc;
+      max-width: 400px;
+      background: #fff;
+      height: 120px;
+      overflow-y: auto;
+      border-radius: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
+      word-break: break-word;
+    }
+    th {
+      background-color: #0b3d91;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #f0f0f0;
+    }
+    button {
+      padding: 5px 10px;
+      margin: 2px;
+      font-size: 0.8em;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+    }
+    .credit { background: green; color: white; }
+    .debit { background: darkred; color: white; }
+    .block { background: black; color: white; }
+    .vip { background: purple; color: white; }
+    .email { background: #d44638; color: white; }
+    .call { background: #34b7f1; color: white; }
+    .delete { background: crimson; color: white; }
+    .download { background: #0b3d91; color: white; padding: 8px 15px; margin: 10px auto; display: block; }
+    @media (max-width: 768px) {
+      th, td { font-size: 0.75em; padding: 5px; }
+      button { font-size: 0.7em; padding: 4px 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Seldom Bank - Admin Panel</h1>
+<div class="asset-display">Bank Asset: ₦<span id="bankAsset">Loading...</span></div>
+
+<div class="notifications" id="adminNotifications">
+  <strong>Live Notifications:</strong>
+  <ul id="notificationList"></ul>
+</div>
+
+<button class="download" onclick="downloadCSV()">Download All User Info (CSV)</button>
+
+<table>
+  <thead>
+    <tr>
+      <th>Email</th>
+      <th>Username</th>
+      <th>Phone</th>
+      <th>Balance</th>
+      <th>Account No</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="userList">
+    <tr><td colspan="6">Loading...</td></tr>
+  </tbody>
+</table>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+const supabaseClient = supabase.createClient(
+  'https://iurbleizodevsuharmau.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1cmJsZWl6b2RldnN1aGFybWF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4MDg3MDgsImV4cCI6MjA3MzM4NDcwOH0.L4yM0U6deTKD7No5IfK642zlj4IRtHk_lAolmqF5Rmk'
+);
+
+
+// Load Bank Asset
+async function getAsset() {
+  const { data, error } = await supabaseClient.from('bank_asset').select('amount').single();
+  if (error) return console.error("Bank asset error:", error);
+  document.getElementById('bankAsset').innerText = data?.amount?.toLocaleString() || '0';
+}
+
+// Load all users
+async function loadUsers() {
+  const { data: users } = await supabaseClient.from('profiles').select('*');
+  const { data: wallets } = await supabaseClient.from('wallets').select('*');
+  const { data: accounts } = await supabaseClient.from('accounts').select('*');
+
+  const userTable = document.getElementById('userList');
+  userTable.innerHTML = '';
+
+  for (const user of users) {
+    // Ensure wallet exists
+    let wallet = wallets.find(w => w.user_id === user.id);
+    if (!wallet) {
+      const { data: newWallet } = await supabaseClient.from('wallets').insert([{ user_id: user.id, balance: 0 }]).select().single();
+      wallet = newWallet;
+      wallets.push(wallet);
+    }
+
+    const account = accounts.find(a => a.id === user.id);
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${user.email}</td>
+      <td>${user.username}</td>
+      <td>${user.phone || 'N/A'}</td>
+      <td>₦${wallet.balance?.toLocaleString() || '0'}</td>
+      <td>${account?.account_number || 'N/A'}</td>
+      <td>
+        <button onclick="adjustBalance('${user.id}', '${user.email}', 'credit')">Credit</button>
+        <button onclick="adjustBalance('${user.id}', '${user.email}', 'debit')">Debit</button>
+        <button onclick="sendVIP('${user.id}')">VIP</button>
+        <button onclick="blockUser('${user.id}')">Block</button>
+        <button onclick="deleteUser('${user.id}')">Delete</button>
+        <a href="tel:${user.phone}"><button class="call">Call</button></a>
+        <a href="mailto:${user.email}"><button class="email">Email</button></a>
+      </td>
+    `;
+    userTable.appendChild(row);
+  }
+}
+
+// Credit/Debit Wallet
+async function adjustBalance(userId, userEmail, type) {
+  const amount = parseFloat(prompt(`Enter amount to ${type} for ${userEmail}:`));
+  if (!amount || isNaN(amount)) return alert('Invalid amount');
+
+  const { data: wallet } = await supabaseClient.from('wallets').select('*').eq('user_id', userId).single();
+  if (!wallet) return alert('Wallet not found');
+
+  let newBalance = wallet.balance || 0;
+
+  if (type === 'credit') {
+    const { data: assetRow } = await supabaseClient.from('bank_asset').select('*').single();
+    const currentAsset = assetRow?.amount || 0;
+    if (amount > currentAsset) return alert("Insufficient bank asset");
+
+    await supabaseClient.from('bank_asset').update({ amount: currentAsset - amount }).eq('id', assetRow.id);
+    newBalance += amount;
+  } else {
+    if (newBalance < amount) return alert("Insufficient user balance");
+    newBalance -= amount;
+    // Optionally, return amount to bank_asset
+    const { data: assetRow } = await supabaseClient.from('bank_asset').select('*').single();
+    await supabaseClient.from('bank_asset').update({ amount: assetRow.amount + amount }).eq('id', assetRow.id);
+  }
+
+  await supabaseClient.from('wallets').update({ balance: newBalance }).eq('user_id', userId);
+
+  // Add notification
+  await supabaseClient.from('notifications').insert([{
+    user_id: userId,
+    message: `[Admin] Your wallet was ${type}ed ₦${amount.toLocaleString()}`
+  }]);
+
+  alert(`₦${amount.toLocaleString()} ${type}ed successfully`);
+  await getAsset();
+  await loadUsers();
+}
+
+// Block User
+async function blockUser(userId) {
+  if (confirm("Are you sure you want to block this user?")) {
+    await supabaseClient.from('profiles').delete().eq('id', userId);
+    alert("User blocked");
+    await loadUsers();
+  }
+}
+
+// Delete User
+async function deleteUser(userId) {
+  if (confirm("Delete this user and all data?")) {
+    await supabaseClient.from('profiles').delete().eq('id', userId);
+    await supabaseClient.from('wallets').delete().eq('user_id', userId);
+    await supabaseClient.from('accounts').delete().eq('id', userId);
+    await supabaseClient.from('notifications').delete().eq('user_id', userId);
+    alert("User deleted");
+    await loadUsers();
+  }
+}
+
+// VIP
+async function sendVIP(userId) {
+  const message = prompt("Enter VIP message:");
+  if (!message) return;
+  await supabaseClient.from('notifications').insert([{ user_id: userId, message: `[VIP] ${message}` }]);
+  alert("VIP message sent");
+}
+
+// Init
+getAsset();
+loadUsers();
+</script>
+
+</body>
+</html>
