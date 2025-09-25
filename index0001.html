@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Seldom Bank</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      width: 90%;
+      max-width: 400px;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      margin-top: 30px;
+    }
+    h1 {
+      text-align: center;
+      color: #00796b;
+      font-size: 24px;
+    }
+    h2, h3, h4 {
+      color: #444;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #00796b;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover { background: #00695c; }
+    a {
+      color: #00796b;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover { text-decoration: underline; }
+    p { text-align: center; }
+    #loginSection, #dashboardSection { display: none; }
+    .receipt { 
+      background: #eef; 
+      padding: 15px; 
+      border-radius: 10px; 
+      margin-top: 20px; 
+      display: none; 
+    }
+    .actions { 
+      display: flex; 
+      gap: 10px; 
+      margin-top: 10px; 
+    }
+    .actions button { 
+      flex: 1; 
+    }
+    .modal {
+      background: #e0f2f1;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    .modal h2 {
+      font-size: 18px;
+      margin: 0;
+      color: #00796b;
+    }
+    .modal h3, .modal h4 {
+      margin: 5px 0;
+      font-weight: normal;
+      color: #444;
+    }
+    .transaction-history {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+  </style>
+  <style >
+  	.logo {
+  display: block;
+  margin: 0 auto 15px auto;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.logo:hover {
+  transform: scale(1.1);
+}
+
+/* Support icon */
+.support-icon {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: #00796b;
+  color: white;
+  border-radius: 50%;
+  padding: 10px;
+  font-size: 24px;
+  cursor: pointer;
+  transition: transform 0.3s;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.support-icon:hover {
+  transform: scale(1.15);
+}
+  </style>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+
+<!-- Register Section -->
+<div class="container" id="registerSection">
+<img src="https://seldom-bank.onrender.com/jXGXv58UfLZqpCSdxbaIL.jpg" alt="Bank Logo" class="logo" />
+  <h1>Welcome To Seldom Bank</h1>
+  <h2>Register</h2>
+  <input type="email" id="regEmail" placeholder="Email">
+  <input type="password" id="regPassword" placeholder="Password">
+  <input type="text" id="username" placeholder="Username">
+  <input type="tel" id="phone" placeholder="Phone Number">
+  <input type="text" id="state" placeholder="State">
+  <input type="text" id="lga" placeholder="Local Government">
+  <button onclick="register()">Register</button>
+  <p>Already have an account? <a href="#" onclick="showLogin()">Login here</a></p>
+</div>
+
+<!-- Login Section -->
+<div class="container" id="loginSection">
+<img src="https://seldom-bank.onrender.com/jXGXv58UfLZqpCSdxbaIL.jpg" alt="Bank Logo" class="logo" />
+  <h1>Welcome To Seldom Bank</h1>
+  <h2>Login</h2>
+  <input type="email" id="loginEmail" placeholder="Email">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <p>Don't have an account? <a href="#" onclick="showRegister()">Register here</a></p>
+</div>
+
+<!-- Dashboard Section -->
+<div class="container" id="dashboardSection">
+  <div class="modal">
+    <h2>Hello, <span id="userEmail">Loading...</span></h2>
+    <h3>Wallet Balance: ₦<span id="walletBalance">0</span></h3>
+    <h4>Account Number: <span id="accountNumber">Loading...</span></h4>
+  </div>
+
+  <div class="actions">
+    <button onclick="logout()" style="background:red;">Logout</button>
+    <button onclick="loadDashboard()">Refresh</button>
+    <!-- Support Button -->
+<span class="material-icons support-icon" onclick="openWhatsApp()">support_agent</span>
+  </div>
+
+  <h4>Send Money by Account Number</h4>
+  <input type="text" id="recipientAcc" placeholder="Enter Account Number">
+  <p id="recipientName" style="color: green; font-weight: bold;"></p>
+  <input type="number" id="sendAmount" placeholder="Amount">
+  <button onclick="sendMoney()">Send</button>
+
+  <h4>Transaction History</h4>
+  <div id="transactionHistory" class="transaction-history">Loading...</div>
+  <h4>Notifications</h4>
+  <ul id="notifications" style="color: blue;"></ul>
+
+  <div class="receipt" id="receipt">
+    <h3>Transaction Receipt</h3>
+    <p><strong>From:</strong> <span id="receiptFrom"></span></p>
+    <p><strong>To:</strong> <span id="receiptTo"></span></p>
+    <p><strong>Amount:</strong> ₦<span id="receiptAmount"></span></p>
+    <p><strong>Date:</strong> <span id="receiptDate"></span></p>
+    <p><strong>Ref:</strong> <span id="receiptRef"></span></p>
+    <button onclick="window.print()">Print Receipt</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+const supabaseClient = supabase.createClient(
+  'https://iurbleizodevsuharmau.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1cmJsZWl6b2RldnN1aGFybWF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4MDg3MDgsImV4cCI6MjA3MzM4NDcwOH0.L4yM0U6deTKD7No5IfK642zlj4IRtHk_lAolmqF5Rmk'
+);
+
+let currentUser = null;
+
+
+
+// Utility: Ensure a wallet exists for a user
+async function ensureWalletExists(userId) {
+  const { data: wallet } = await supabaseClient.from('wallets').select('id').eq('user_id', userId).single();
+  if (!wallet) {
+    await supabaseClient.from('wallets').insert([{ user_id: userId, balance: 0 }]);
+  }
+}
+
+function showLogin() {
+  document.getElementById('registerSection').style.display = 'none';
+  document.getElementById('loginSection').style.display = 'block';
+  document.getElementById('dashboardSection').style.display = 'none';
+}
+
+function showRegister() {
+  document.getElementById('registerSection').style.display = 'block';
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('dashboardSection').style.display = 'none';
+}
+
+async function register() {
+  const email = document.getElementById('regEmail').value;
+  const password = document.getElementById('regPassword').value;
+  const username = document.getElementById('username').value;
+  const phone = document.getElementById('phone').value;
+  const state = document.getElementById('state').value;
+  const lga = document.getElementById('lga').value;
+
+  const { data, error } = await supabaseClient.auth.signUp({ email, password });
+  if (error) return alert('Registration failed: ' + error.message);
+  const { user } = data;
+
+  await supabaseClient.from('profiles').insert([{ 
+    id: user.id, email, username, phone, state, lga
+  }]);
+
+  await createAccountForNewUser(user.id);
+  await ensureWalletExists(user.id);
+
+  alert('Registration successful! Please log in.');
+  showLogin();
+}
+
+async function generateAccountNumber() {
+  let accountNumber = '';
+  let exists = true;
+
+  while (exists) {
+    const randomPart = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    accountNumber = '2000' + randomPart;
+
+    const { data } = await supabaseClient.from('accounts')
+      .select('account_number')
+      .eq('account_number', accountNumber)
+      .single();
+
+    exists = !!data;
+  }
+  return accountNumber;
+}
+
+async function createAccountForNewUser(userId) {
+  const accountNumber = await generateAccountNumber();
+
+  await supabaseClient.from('accounts').insert([{
+    id: userId,
+    account_number: accountNumber,
+    balance: 0
+  }]);
+}
+
+async function login() {
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) return alert('Login failed: ' + error.message);
+
+  currentUser = data.user;
+  showDashboard();
+}
+
+async function showDashboard() {
+  document.getElementById('registerSection').style.display = 'none';
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('dashboardSection').style.display = 'block';
+
+  document.getElementById('userEmail').innerText = currentUser.email;
+
+  const { data: account } = await supabaseClient.from('accounts')
+    .select('account_number')
+    .eq('id', currentUser.id)
+    .single();
+
+  document.getElementById('accountNumber').innerText = account ? account.account_number : 'N/A';
+
+  await ensureWalletExists(currentUser.id);
+
+  const { data: wallet } = await supabaseClient.from('wallets')
+    .select('balance')
+    .eq('user_id', currentUser.id)
+    .single();
+
+  document.getElementById('walletBalance').innerText = wallet ? wallet.balance.toLocaleString() : '0';
+
+  loadTransactionHistory();
+  loadNotificationHistory();
+}
+
+document.getElementById('recipientAcc').addEventListener('input', async function () {
+  const accNum = this.value;
+  if (accNum.length === 10) {
+    try {
+      const { data: account } = await supabaseClient
+        .from('accounts')
+        .select('account_number, id')
+        .eq('account_number', accNum)
+        .single();
+
+      if (!account) return document.getElementById('recipientName').innerText = "No account found";
+
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('username')
+        .eq('id', account.id)
+        .single();
+
+      if (!profile) return document.getElementById('recipientName').innerText = "No profile found";
+
+      document.getElementById('recipientName').innerText = "Name: " + profile.username;
+
+    } catch (err) {
+      console.error('Error:', err);
+      document.getElementById('recipientName').innerText = "Something went wrong";
+    }
+  } else {
+    document.getElementById('recipientName').innerText = "";
+  }
+});
+
+async function sendMoney() {
+  const accNum = document.getElementById('recipientAcc').value;
+  const amount = parseFloat(document.getElementById('sendAmount').value);
+  if (!accNum || !amount || isNaN(amount)) return alert('Enter valid amount and account number');
+
+  const { data: receiverAccount } = await supabaseClient
+    .from('accounts')
+    .select('id')
+    .eq('account_number', accNum)
+    .single();
+
+  if (!receiverAccount) return alert('Recipient not found');
+  const receiverId = receiverAccount.id;
+
+  await ensureWalletExists(currentUser.id);
+  await ensureWalletExists(receiverId);
+
+  const { data: senderWallet } = await supabaseClient
+    .from('wallets')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .single();
+
+  const { data: receiverWallet } = await supabaseClient
+    .from('wallets')
+    .select('*')
+    .eq('user_id', receiverId)
+    .single();
+
+  if (senderWallet.balance < amount) return alert('Insufficient balance');
+
+  const newSenderBalance = senderWallet.balance - amount;
+  const newReceiverBalance = receiverWallet.balance + amount;
+  const ref = 'TX' + Math.floor(Math.random() * 99999999);
+
+  await supabaseClient.from('wallets').update({ balance: newSenderBalance }).eq('user_id', currentUser.id);
+  await supabaseClient.from('wallets').update({ balance: newReceiverBalance }).eq('user_id', receiverId);
+
+  await supabaseClient.from('transactions').insert([
+    {
+      from_id: currentUser.id,
+      to_id: receiverId,
+      amount,
+      ref_id: ref
+    }
+  ]);
+
+  await supabaseClient.from('notifications').insert([
+    {
+      user_id: currentUser.id,
+      message: `✅ You sent ₦${amount.toLocaleString()} to account ${accNum}`
+    },
+    {
+      user_id: receiverId,
+      message: `📥 You received ₦${amount.toLocaleString()} from ${currentUser.email}`
+    }
+  ]);
+
+  document.getElementById('receiptFrom').innerText = currentUser.email;
+  document.getElementById('receiptTo').innerText = accNum;
+  document.getElementById('receiptAmount').innerText = amount.toLocaleString();
+  document.getElementById('receiptDate').innerText = new Date().toLocaleString();
+  document.getElementById('receiptRef').innerText = ref;
+  document.getElementById('receipt').style.display = 'block';
+
+  
+  await showDashboard();
+}
+
+async function loadTransactionHistory() {
+  const { data: sent } = await supabaseClient
+    .from('transactions')
+    .select('amount, ref_id, to_id')
+    .eq('from_id', currentUser.id);
+
+  const { data: received } = await supabaseClient
+    .from('transactions')
+    .select('amount, ref_id, from_id')
+    .eq('to_id', currentUser.id);
+
+  let html = '<ul>';
+
+  if (Array.isArray(sent)) {
+    for (const tx of sent) {
+      const { data: toUser } = await supabaseClient.from('profiles').select('email').eq('id', tx.to_id).single();
+      const txTime = new Date(tx.created_at).toLocaleString();
+      html += `<li>Sent ₦${tx.amount.toLocaleString()} to ${toUser?.email || 'Unknown'} [${tx.ref_id}]</li>`;
+    }
+  }
+
+  if (Array.isArray(received)) {
+    for (const tx of received) {
+      const { data: fromUser } = await supabaseClient.from('profiles').select('email').eq('id', tx.from_id).single();
+      const txTime = new Date(tx.created_at).toLocaleString();
+      html += `<li>Received ₦${tx.amount.toLocaleString()} from ${fromUser?.email || 'Unknown'} [${tx.ref_id}]</li>`;
+    }
+  }
+
+  html += '</ul>';
+  document.getElementById('transactionHistory').innerHTML = html;
+}
+
+async function loadNotificationHistory() {
+  const { data } = await supabaseClient
+    .from('notifications')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  const container = document.getElementById('notifications');
+  container.innerHTML = '';
+
+  if (data && data.length > 0) {
+    data.forEach(notif => {
+      const li = document.createElement('li');
+      const time = new Date(notif.created_at).toLocaleString();
+       li.innerText = `${notif.message} - ${time}`;
+      container.appendChild(li);
+    });
+  } else {
+    container.innerHTML = '<li>No notifications yet.</li>';
+  }
+}
+
+async function logout() {
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  showLogin();
+}
+function openWhatsApp() {
+  window.open("https://wa.me/12403670968", "_blank");
+}
+</script>
+
+</body>
+</html>
